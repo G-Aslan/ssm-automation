@@ -1,0 +1,823 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template for SSM Automation Documents
+
+Parameters:
+  EmailAddress:
+    Type: String
+    Description: The email address to subscribe to the SNS topic
+
+Resources:
+
+  # Create role for the documents
+  SSMRoleAutomation:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SSM-Role-Automation
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+                - ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/AWSLambda_FullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMPatchAssociation
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  # Create role for the Lambada function
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Lambda-Role-Automation
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMFullAccess
+
+  # Create the Lambda function
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: CheckParameters
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.12
+      Code:
+        ZipFile: |
+          import boto3
+          def lambda_handler(event, context):
+            action = event.get('action')
+            if action == 'check_all_zero':
+              return check_all_zero(event, context)
+            elif action == 'check_dev1':
+              return check_dev1(event, context)
+            elif action == 'check_dev2':
+              return check_dev2(event, context)
+            elif action == 'check_prod1':
+              return check_prod1(event, context)
+            elif action == 'check_prod2':
+              return check_prod2(event, context)
+            elif action == 'set_dev1_to_zero':
+              return set_dev1_to_zero(event, context)
+            elif action == 'set_dev1_to_one':
+              return set_dev1_to_one(event, context)
+            elif action == 'set_dev2_to_zero':
+              return set_dev2_to_zero(event, context)
+            elif action == 'set_dev2_to_one':
+              return set_dev2_to_one(event, context)
+            elif action == 'set_prod1_to_zero':
+              return set_prod1_to_zero(event, context)
+            elif action == 'set_prod1_to_one':
+              return set_prod1_to_one(event, context)
+            elif action == 'set_prod2_to_zero':
+              return set_prod2_to_zero(event, context)
+            elif action == 'set_prod2_to_one':
+              return set_prod2_to_one(event, context)
+            elif action == 'failed_message':
+              return failed_message(event, context)
+            else:
+              return {'error': 'Invalid action'}
+          def check_all_zero(event, context):
+            ssm_client = boto3.client('ssm')
+            parameters = [
+              '/PatchGroup/Dev1',
+              '/PatchGroup/Dev2',
+              '/PatchGroup/Prod1',
+              '/PatchGroup/Prod2'
+            ]
+            all_zero = True
+            for parameter in parameters:
+              response = ssm_client.get_parameter(Name=parameter)
+              value = response['Parameter']['Value']
+              if value != '0':
+                all_zero = False
+                break
+            return all_zero
+          def check_dev1(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            return value == '1'
+          def check_dev2(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            return value == '1'
+          def check_prod1(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            return value == '1'
+          def check_prod2(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            return value == '1'
+          def set_dev1_to_zero(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value == '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='0', Overwrite=True)
+            return { 'status': 'success' }
+          def set_dev1_to_one(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value != '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='1', Overwrite=True)
+            return { 'status': 'success' }
+          def set_dev2_to_zero(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value == '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='0', Overwrite=True)
+            return { 'status': 'success' }
+          def set_dev2_to_one(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Dev2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value != '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='1', Overwrite=True)
+            return { 'status': 'success' }
+          def set_prod1_to_zero(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value == '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='0', Overwrite=True)
+            return { 'status': 'success' }
+          def set_prod1_to_one(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod1'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value != '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='1', Overwrite=True)
+            return { 'status': 'success' }
+          def set_prod2_to_zero(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value == '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='0', Overwrite=True)
+            return { 'status': 'success' }
+          def set_prod2_to_one(event, context):
+            ssm_client = boto3.client('ssm')
+            parameter_name = '/PatchGroup/Prod2'
+            response = ssm_client.get_parameter(Name=parameter_name)
+            value = response['Parameter']['Value']
+            if value != '1':
+              ssm_client.put_parameter(Name=parameter_name, Value='1', Overwrite=True)
+            return { 'status': 'success' }
+          def failed_message(event, context):
+            return 'Aborting automation'
+
+  # Create SNS Topic
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: AutomationTopic
+      TopicName: Patch-Alert
+
+  # Create SNS Subscription
+  SNSTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SNSTopic
+      Protocol: email
+      Endpoint: !Ref EmailAddress
+
+  # Create SNS Policy
+  SNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref SNSTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: SNS:Publish
+            Resource: !Ref SSMRoleAutomation
+
+  # Create State Manager Target
+  StateManagerAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      AssociationName: MainAutomationTrigger
+      Name: !Ref MainAutomationDocument
+      ScheduleExpression: cron(0 5 ? * * *)
+      Parameters:
+        AutomationAssumeRole:
+          - !GetAtt SSMRoleAutomation.Arn
+    DependsOn:
+      - MainAutomationDocument
+
+  # Create Parameter Groups and set the value to 0
+  PatchGroupDev1:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /PatchGroup/Dev1
+      Type: String
+      Value: '0'
+
+  PatchGroupDev2:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /PatchGroup/Dev2
+      Type: String
+      Value: '0'
+
+  PatchGroupProd1:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /PatchGroup/Prod1
+      Type: String
+      Value: '0'
+
+  PatchGroupProd2:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /PatchGroup/Prod2
+      Type: String
+      Value: '0'
+
+  # Create the Dev1 document
+  Dev1AutomationDocument:
+    Type: AWS::SSM::Document
+    DeletionPolicy: Delete
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Name: Dev1-Automation-CloudFormation
+      Content:
+        parameters:
+          AutomationAssumeRole:
+            default: !GetAtt SSMRoleAutomation.Arn
+            type: String
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt SSMRoleAutomation.Arn
+        mainSteps:
+          - description: Refreshing subscription on the instance
+            name: Refresh
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            nextStep: Patch
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailRefresh
+            inputs:
+              DocumentName: AWS-RunShellScript
+              Parameters:
+                commands:
+                - (mkdir -p /etc/python) && (echo "[tarfile] PYTHON_TARFILE_EXTRACTION_FILTER=data" > /etc/python/tarfile.cfg)
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - dev1
+          - description: Applying patches to the instance
+            name: Patch
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            isEnd: false
+            nextStep: UpdateSuccess
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailPatch
+            inputs:
+              DocumentName: AWS-RunPatchBaseline
+              Parameters:
+                Operation: Install
+                RebootOption: NoReboot
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - dev1
+          - description: Publishing cancel message
+            name: PublishCancelMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The automation for Dev1 has been cancelled.
+          - description: Publishing failure message for Refresh
+            name: PublishFailRefresh
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Refresh step for Dev1 failed.
+          - name: UpdateFail
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_dev1_to_one" }'
+          - name: UpdateSuccess
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_dev1_to_zero" }'
+          - description: Publishing failure message for Patch
+            name: PublishFailPatch
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Patch step for Dev1 failed.
+
+  # Create the Dev2 document
+  Dev2AutomationDocument:
+    Type: AWS::SSM::Document
+    DeletionPolicy: Delete
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Name: Dev2-Automation-CloudFormation
+      Content:
+        parameters:
+          AutomationAssumeRole:
+            default: !GetAtt SSMRoleAutomation.Arn
+            type: String
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt SSMRoleAutomation.Arn
+        mainSteps:
+          - description: Refreshing subscription on the instance
+            name: Refresh
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            nextStep: Patch
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailRefresh
+            inputs:
+              DocumentName: AWS-RunShellScript
+              Parameters:
+                commands:
+                - (mkdir -p /etc/python) && (echo "[tarfile] PYTHON_TARFILE_EXTRACTION_FILTER=data" > /etc/python/tarfile.cfg)
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - dev2
+          - description: Applying patches to the instance
+            name: Patch
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            nextStep: UpdateSuccess
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailPatch
+            inputs:
+              DocumentName: AWS-RunPatchBaseline
+              Parameters:
+                Operation: Install
+                RebootOption: NoReboot
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - dev2
+          - description: Publishing cancel message
+            name: PublishCancelMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The automation for Dev2 has been cancelled.
+          - description: Publishing failure message for Refresh
+            name: PublishFailRefresh
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Refresh step for Dev2 failed.
+          - name: UpdateFail
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_dev2_to_one" }'
+          - name: UpdateSuccess
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_dev2_to_zero" }'
+          - description: Publishing failure message for Patch
+            name: PublishFailPatch
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Patch step for Dev2 failed.
+
+  # Create the Prod1 document
+  Prod1AutomationDocument:
+    Type: AWS::SSM::Document
+    DeletionPolicy: Delete
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Name: Prod1-Automation-CloudFormation
+      Content:
+        parameters:
+          AutomationAssumeRole:
+            default: !GetAtt SSMRoleAutomation.Arn
+            type: String
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt SSMRoleAutomation.Arn
+        mainSteps:
+          - description: Refreshing subscription on the instance
+            name: Refresh
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            nextStep: Patch
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailRefresh
+            inputs:
+              DocumentName: AWS-RunShellScript
+              Parameters:
+                commands:
+                - (mkdir -p /etc/python) && (echo "[tarfile] PYTHON_TARFILE_EXTRACTION_FILTER=data" > /etc/python/tarfile.cfg)
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - prod1
+          - description: Applying patches to the instance
+            name: Patch
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            isEnd: false
+            nextStep: UpdateSuccess
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailPatch
+            inputs:
+              DocumentName: AWS-RunPatchBaseline
+              Parameters:
+                Operation: Install
+                RebootOption: NoReboot
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - prod1
+          - description: Publishing cancel message
+            name: PublishCancelMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The automation for Prod1 has been cancelled.
+          - description: Publishing failure message for Refresh
+            name: PublishFailRefresh
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Refresh step for Prod1 failed.
+          - name: UpdateFail
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_prod1_to_one" }'
+          - name: UpdateSuccess
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_prod1_to_zero" }'
+          - description: Publishing failure message for Patch
+            name: PublishFailPatch
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Patch step for Prod1 failed.
+
+  # Create the Prod2 document
+  Prod2AutomationDocument:
+    Type: AWS::SSM::Document
+    DeletionPolicy: Delete
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Name: Prod2-Automation-CloudFormation
+      Content:
+        parameters:
+          AutomationAssumeRole:
+            default: !GetAtt SSMRoleAutomation.Arn
+            type: String
+        schemaVersion: '0.3'
+        assumeRole: !GetAtt SSMRoleAutomation.Arn
+        mainSteps:
+          - description: Refreshing subscription on the instance
+            name: Refresh
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            nextStep: Patch
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailRefresh
+            inputs:
+              DocumentName: AWS-RunShellScript
+              Parameters:
+                commands:
+                - (mkdir -p /etc/python) && (echo "[tarfile] PYTHON_TARFILE_EXTRACTION_FILTER=data" > /etc/python/tarfile.cfg)
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - prod2
+          - description: Applying patches to the instance
+            name: Patch
+            action: aws:runCommand
+            timeoutSeconds: 6000
+            isEnd: false
+            onCancel: step:PublishCancelMessage
+            onFailure: step:PublishFailPatch
+            nextStep: UpdateSuccess
+            inputs:
+              DocumentName: AWS-RunPatchBaseline
+              Parameters:
+                Operation: Install
+                RebootOption: NoReboot
+              Targets:
+                - Key: tag:PatchGroup
+                  Values:
+                    - prod2
+          - description: Publishing cancel message
+            name: PublishCancelMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The automation for Prod2 has been cancelled.
+          - description: Publishing failure message for Refresh
+            name: PublishFailRefresh
+            action: aws:executeAwsApi
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Refresh step for Prod2 failed.
+          - name: UpdateFail
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_prod2_to_one" }'
+          - name: UpdateSuccess
+            action: aws:invokeLambdaFunction
+            isEnd: true
+            inputs:
+              FunctionName: !GetAtt LambdaFunction.Arn
+              Payload: '{ "action": "set_prod2_to_zero" }'
+          - description: Publishing failure message for Patch
+            name: PublishFailPatch
+            action: aws:executeAwsApi
+            nextStep: UpdateFail
+            isEnd: false
+            inputs:
+              Service: sns
+              Api: Publish
+              TopicArn: !Ref SNSTopic
+              Message: The Patch step for Prod2 failed.
+
+  # Create the main document
+  MainAutomationDocument:
+    Type: AWS::SSM::Document
+    DeletionPolicy: Delete
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Name: Main-Automation-CloudFormation
+      Content:
+        schemaVersion: '0.3'
+        description: 'Patch instances in order: Dev1 first, then Dev2, Prod1 and Prod2.
+          Update parameter values based on success or failure.'
+        parameters:
+          AutomationAssumeRole:
+            type: String
+            description: The ARN of the role that allows Automation to perform the actions
+              on your behalf.
+            default: !GetAtt SSMRoleAutomation.Arn
+        assumeRole: !GetAtt SSMRoleAutomation.Arn
+        mainSteps:
+          - name: CheckParameters
+            action: aws:invokeLambdaFunction
+            nextStep: BranchOnContinue
+            isEnd: false
+            inputs:
+              FunctionName: !Ref LambdaFunction
+              Payload: '{ "action": "check_all_zero" }'
+            outputs:
+              - Type: Boolean
+                Name: continue
+                Selector: $.Payload.continue
+          - name: BranchOnContinue
+            action: aws:branch
+            inputs:
+              Choices:
+                - NextStep: Dev1_Automation
+                  Variable: '{{ CheckParameters.Payload }}'
+                  StringEquals: 'true'
+                - NextStep: CheckIfDev1is1
+                  Variable: '{{ CheckParameters.Payload }}'
+                  StringEquals: 'false'
+              Default: Dev1_Automation
+          - name: Dev1_Automation
+            action: aws:executeAutomation
+            nextStep: 3SecSleep
+            isEnd: false
+            inputs:
+              DocumentName: !Ref Dev1AutomationDocument
+          - name: 3SecSleep
+            action: aws:sleep
+            nextStep: Dev2_Automation
+            isEnd: false
+            inputs:
+              Duration: PT3S
+          - name: CheckIfDev1is1
+            action: aws:invokeLambdaFunction
+            nextStep: CheckDev1Value
+            isEnd: false
+            inputs:
+              Payload: '{ "action": "check_dev1" }'
+              FunctionName: !Ref LambdaFunction
+            outputs:
+              - Type: Boolean
+                Name: continue
+                Selector: $.Payload.continue
+          - name: CheckDev1Value
+            action: aws:branch
+            inputs:
+              Choices:
+                - NextStep: Dev1_Automation
+                  Variable: '{{ CheckIfDev1is1.Payload }}'
+                  StringEquals: 'true'
+                - NextStep: CheckIfDev2is1
+                  Variable: '{{ CheckIfDev1is1.Payload }}'
+                  StringEquals: 'false'
+              Default: Dev1_Automation
+          - name: CheckIfDev2is1
+            action: aws:invokeLambdaFunction
+            nextStep: CheckDev2Value
+            isEnd: false
+            inputs:
+              Payload: '{ "action": "check_dev2" }'
+              FunctionName: !Ref LambdaFunction
+            outputs:
+              - Type: Boolean
+                Name: continue
+                Selector: $.Payload.continue
+          - name: CheckDev2Value
+            action: aws:branch
+            inputs:
+              Choices:
+                - NextStep: Dev2_Automation
+                  Variable: '{{ CheckIfDev2is1.Payload }}'
+                  StringEquals: 'true'
+                - NextStep: CheckIfProd1is1
+                  Variable: '{{ CheckIfDev2is1.Payload }}'
+                  StringEquals: 'false'
+              Default: Dev2_Automation
+          - name: Dev2_Automation
+            action: aws:executeAutomation
+            nextStep: 3SecSleep1
+            isEnd: false
+            inputs:
+              DocumentName: !Ref Dev2AutomationDocument
+          - name: 3SecSleep1
+            action: aws:sleep
+            nextStep: Prod1_Automation
+            isEnd: false
+            inputs:
+              Duration: PT3S
+          - name: Prod1_Automation
+            action: aws:executeAutomation
+            nextStep: 3SecSleep2
+            isEnd: false
+            inputs:
+              DocumentName: !Ref Prod1AutomationDocument
+          - name: 3SecSleep2
+            action: aws:sleep
+            nextStep: Prod2_Automation
+            isEnd: false
+            inputs:
+              Duration: PT3S
+          - name: Prod2_Automation
+            action: aws:executeAutomation
+            nextStep: PublishSuccessMessage
+            isEnd: false
+            inputs:
+              DocumentName: !Ref Prod2AutomationDocument
+          - name: PublishSuccessMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              TopicArn: !Ref SNSTopic
+              Service: sns
+              Api: Publish
+              Message: The automation has passed successfully!
+          - name: CheckIfProd1is1
+            action: aws:invokeLambdaFunction
+            nextStep: CheckProd1Value
+            isEnd: false
+            inputs:
+              FunctionName: !Ref LambdaFunction
+              Payload: '{ "action": "check_prod1" }'
+            outputs:
+              - Type: Boolean
+                Name: continue
+                Selector: $.Payload.continue
+          - name: CheckProd1Value
+            action: aws:branch
+            inputs:
+              Choices:
+                - NextStep: Prod1_Automation
+                  Variable: '{{ CheckIfProd1is1.Payload }}'
+                  StringEquals: 'true'
+                - NextStep: CheckIfProd2is1
+                  Variable: '{{ CheckIfProd1is1.Payload }}'
+                  StringEquals: 'false'
+              Default: Prod1_Automation
+          - name: CheckIfProd2is1
+            action: aws:invokeLambdaFunction
+            nextStep: CheckProd2Value
+            isEnd: false
+            inputs:
+              FunctionName: !Ref LambdaFunction
+              Payload: '{ "action": "check_prod2" }'
+            outputs:
+              - Type: Boolean
+                Name: continue
+                Selector: $.Payload.continue
+          - name: CheckProd2Value
+            action: aws:branch
+            inputs:
+              Choices:
+                - NextStep: Prod2_Automation
+                  Variable: '{{ CheckIfProd2is1.Payload }}'
+                  StringEquals: 'true'
+                - NextStep: PublishFailureMessage
+                  Variable: '{{ CheckIfProd2is1.Payload }}'
+                  StringEquals: 'false'
+              Default: Prod2_Automation
+          - name: PublishFailureMessage
+            action: aws:executeAwsApi
+            isEnd: true
+            inputs:
+              TopicArn: !Ref SNSTopic
+              Service: sns
+              Api: Publish
+              Message: The automation failed!
+  
